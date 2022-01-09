@@ -1,0 +1,120 @@
+---
+title: "Practical Machine Learning Course Project"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, cache = TRUE)
+```
+
+## Introduction
+
+This course project is about building a machine learning model to predict how well individuals do a particular activity. Fitness devices Fitbit, Nike FuelBand etc collect a large amount of data about personal activity relatively inexpensively. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, our goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. We will use the 'classe' variable as classification outcome, compare multiple models and estimate out of sample error and use final model to predict 20 test cases.
+More information regarding the experiment and data sources is available from the website - http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har
+
+## Loading Libraries and the relevant data and preprocessing 
+
+Loading required libraries.
+
+```{r}
+set.seed(1234)
+library(caret)
+library(rpart)
+library(randomForest)
+library(rpart.plot)
+```
+
+Now lets lets load our datasets.
+
+```{r}
+trainset <- read.csv("pml-training.csv", na.strings=c("NA","#DIV/0!", ""))
+testset <- read.csv("pml-testing.csv", na.strings=c("NA","#DIV/0!", ""))
+```
+
+Lets do some eda.
+
+```{r}
+str(trainset)
+str(trainset$classe)
+```
+
+So our dataset contains 19622 obs. and 160 variables. The variable classe has 5 values 'A' to 'E'. We should clean our dataset and remove unnecessary columns.
+So we shall remove columns with missing values and columns 1 to 7 as they are not necessary for our analysis as one can see.
+
+```{r}
+trainset<-trainset[,colSums(is.na(trainset)) == 0]
+testset <-testset[,colSums(is.na(testset)) == 0]
+trainset   <-trainset[,-c(1:7)]
+testset <-testset[,-c(1:7)]
+```
+
+## Creating Data partitions
+
+Now we shall create data partition on our training dataset (trainset) one for training and one for validation. 70% for training and 30% for validation which will be used for estimating out of sample error.
+
+```{r}
+trainset_train_index <- createDataPartition(y=trainset$classe, p=0.70, list=FALSE)
+trainset_train <- trainset[trainset_train_index, ] 
+trainset_validation <- trainset[-trainset_train_index, ]
+```
+
+## Models
+
+### Decision Tree
+
+First let's build a decision tree model for prediction and also do k- fold cross validation with k = 5.
+
+```{r}
+fit_dtree <- train(classe~., data = trainset_train, method = "rpart", trControl = trainControl(method = "cv", number = 5))
+print(fit_dtree)
+```
+
+let's plot the model
+
+```{r}
+rpart.plot(fit_dtree$finalModel)
+```
+
+Now lets apply the model on our validation set and see the accuracy results.
+
+```{r}
+predict_fit_dtree <- predict(fit_dtree, trainset_validation)
+confusionMatrix(predict_fit_dtree, as.factor(trainset_validation$classe))
+```
+
+The accuracy is about 50 % which is quite low.
+
+### Random Forest
+
+Now let's build a random forest model for our classification problem. We again use 5 fold cross validation as before.
+
+```{r}
+fit_rf <- train(classe~., data = trainset_train, method = "rf", trControl = trainControl(method = "cv", number = 5))
+print(fit_rf)
+```
+Now we shall apply our random forest model on validation set to see accuracy.
+
+```{r}
+predict_fit_rf <- predict(fit_rf, trainset_validation)
+confusionMatrix(predict_fit_rf, as.factor(trainset_validation$classe))
+```
+
+We get an accuracy of upto 99.4 % which is quite good and much better than our decision tree model. Therefore, we would select our random forest model for prediction.
+
+## Applying our model on Test data set
+
+Now, we shall apply our model on testing data set.
+
+```{r}
+predict(fit_rf, testset)
+```
+## Conclusion
+
+We built two models, decision tree and random forest for our classification problem. Our decision tree model gave a poor performance with estimated out of sample error 50% while random forest model gave a much better performance with estimated out of sample error 0.6 %. We therefore decided to use our random forest model to make final predictions on test data set.
+
+  
+
+
+
+
+
